@@ -23,3 +23,6 @@ int add(int a, int b)
 	printf("%d %d", a, b);
 	return a + b;
 }
+
+
+添加代码后，请修改该目录下的ReadMe.txt，添加相关注释
