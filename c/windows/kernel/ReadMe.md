@@ -8,3 +8,5 @@
 
 [5. 根据内核模块名获取模块基址](./GetModuleBaseAddress.c)
 
+[6. 内核中的睡眠函数](./Sleep.c)
+
