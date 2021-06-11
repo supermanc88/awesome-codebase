@@ -6,3 +6,5 @@
 
 [4. 内核中获取函数地址](./kernel_get_proc_addr.c)
 
+[5. 内核中获取当前时间](./kernel_get_current_time.c)
+
