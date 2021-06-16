@@ -2,3 +2,5 @@
 
 [1.strtok 分割字符串](./strtok_example.c)
 
+[2.循环位移](./rotate_shift.c)
+
