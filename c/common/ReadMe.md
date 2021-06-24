@@ -4,3 +4,4 @@
 
 [2.循环位移](./rotate_shift.c)
 
+[3.数组打乱 -- 洗牌算法](./fisher_yates_shuffle.c)
