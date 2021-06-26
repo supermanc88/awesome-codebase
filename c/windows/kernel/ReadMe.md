@@ -10,3 +10,7 @@
 
 [6. 内核中的睡眠函数](./Sleep.c)
 
+[7. 内核中分级打印调试日志](./DbgPrintByLevel.c)
+
+[8. 内核中打印字符串](./KdPrintString.c)
+
