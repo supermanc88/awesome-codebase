@@ -16,3 +16,5 @@
 
 [9. MiniFilter中获取文件路径](./FltGetFileName.c)
 
+[10. 内核模式下的字符串操作](./KernelString.c)
+
