@@ -172,6 +172,31 @@ VOID StringConvert()
 
 }
 
+/**
+* \brief StringAppend 字符串拼接
+* \return
+*/
+VOID StringAppend()
+{
+	UNICODE_STRING ret;
+
+	ret.MaximumLength = 256;
+	ret.Buffer = (PWCH)ExAllocatePoolWithTag(NonPagedPool, 256, 'test');
+	/** RtlCopyUnicodeString(&ret, &pNameInfo->Name); */
+
+	PWCH str = L"str";
+
+	UNICODE_STRING dosName;
+	RtlInitUnicodeString(&dosName, str);
+
+	RtlAppendUnicodeStringToString(&ret, &dosName);
+	RtlAppendUnicodeToString(&ret, L"string2");
+
+
+	KdPrint(("%wZ\n", &ret));
+
+}
+
 
 NTSTATUS Driver_Entry(PDRIVER_OBJECT DriverObject, PUNICODE_STRING RegistryPath)
 {
