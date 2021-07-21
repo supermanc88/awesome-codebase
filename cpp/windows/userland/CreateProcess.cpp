@@ -1,4 +1,6 @@
 #include <windows.h>
+#include <sddl.h>
+#include <stdlib.h>
 
 
 // 创建一个 notepad.exe 的进程
@@ -9,8 +11,8 @@ int CreateNotepadProcess(void)
     ZeroMemory(&si, sizeof(si));
     si.cb = sizeof(si);
     ZeroMemory(&pi, sizeof(pi));
-    if (!CreateProcess(NULL,
-        "notepad.exe",
+    if (!CreateProcess("C:\\Windows\\notepad.exe",
+        NULL,
         NULL,
         NULL,
         FALSE,
@@ -21,6 +23,14 @@ int CreateNotepadProcess(void)
         &pi))
     {
         return -1;
+    }
+    if (pi.hProcess)
+    {
+        CloseHandle(pi.hProcess);
+    }
+    if (pi.hThread)
+    {
+        CloseHandle(pi.hThread);
     }
     return 0;
 }
@@ -86,8 +96,8 @@ int CreateNewProcess(void)
     PROCESS_INFORMATION pi;
     ZeroMemory(&pi, sizeof(pi));
     if (!CreateProcessAsUser(hToken,
+        "C:\\Windows\\notepad.exe",
         NULL,
-        "notepad.exe",
         NULL,
         NULL,
         FALSE,
@@ -99,6 +109,16 @@ int CreateNewProcess(void)
     {
         return -1;
     }
+
+    if (pi.hProcess)
+    {
+        CloseHandle(pi.hProcess);
+    }
+    if (pi.hThread)
+    {
+        CloseHandle(pi.hThread);
+    }
+
     return 0;
 }
 
@@ -109,23 +129,37 @@ int SetTokenIntegrityLevel(HANDLE hToken, int level)
     ZeroMemory(&tml, sizeof(tml));
     tml.Label.Attributes = SE_GROUP_INTEGRITY;
     tml.Label.Sid = NULL;
+    char szIntegritySid[20] = {0};
+    PSID pIntegritySid = NULL;
+    BOOL ret;
     switch (level)
     {
-    case SECURITY_MANDATORY_LOW_RID:
-        tml.Label.Attributes |= SE_GROUP_INTEGRITY | SE_GROUP_INTEGRITY_ENABLED;
-        break;
-    case SECURITY_MANDATORY_MEDIUM_RID:
-        tml.Label.Attributes |= SE_GROUP_INTEGRITY | SE_GROUP_INTEGRITY_ENABLED | SE_GROUP_LOGON_ID;
-        break;
-    case SECURITY_MANDATORY_HIGH_RID:
-        tml.Label.Attributes |= SE_GROUP_INTEGRITY | SE_GROUP_INTEGRITY_ENABLED | SE_GROUP_LOGON_ID | SE_GROUP_MANDATORY;
-        break;
-    case SECURITY_MANDATORY_SYSTEM_RID:
-        tml.Label.Attributes |= SE_GROUP_INTEGRITY | SE_GROUP_INTEGRITY_ENABLED | SE_GROUP_LOGON_ID | SE_GROUP_MANDATORY | SE_GROUP_ENABLED;
-        break;
+        case 0:
+        // low
+            strcpy(szIntegritySid, "S-1-16-4096");
+            break;
+        case 1:
+        // medium
+            strcpy(szIntegritySid, "S-1-16-8192");
+            break;
+        case 2:
+        // high
+            strcpy(szIntegritySid, "S-1-16-12288");
+            break;
+        case 3:
+        // system
+            strcpy(szIntegritySid, "S-1-16-16384");
+            break;
     }
+    ret = ConvertStringSidToSidA(szIntegritySid, &pIntegritySid);
+    if (!ret)
+    {
+        return -1;
+    }
+    tml.Label.Sid = pIntegritySid;
+
     DWORD cbSize = sizeof(tml);
-    if (!SetTokenInformation(hToken, TokenIntegrityLevel, &tml, cbSize))
+    if (!SetTokenInformation(hToken, TokenIntegrityLevel, &tml, cbSize + GetLengthSid(pIntegritySid)))
     {
         return -1;
     }
@@ -141,20 +175,20 @@ int CreateLowIntegrityProcess(void)
     {
         return -1;
     }
-    HANDLE hProcess;
+    HANDLE hNewToken;
     if (!DuplicateTokenEx(hToken,
         TOKEN_ALL_ACCESS,
         NULL,
         SecurityImpersonation,
         TokenPrimary,
-        &hProcess))
+        &hNewToken))
     {
         return -1;
     }
     CloseHandle(hToken);
-    if (!SetTokenIntegrityLevel(hProcess, SECURITY_MANDATORY_LOW_RID))
+    if (!SetTokenIntegrityLevel(hNewToken, SECURITY_MANDATORY_LOW_RID))
     {
-        CloseHandle(hProcess);
+        CloseHandle(hNewToken);
         return -1;
     }
     STARTUPINFO si;
@@ -162,9 +196,9 @@ int CreateLowIntegrityProcess(void)
     si.cb = sizeof(si);
     PROCESS_INFORMATION pi;
     ZeroMemory(&pi, sizeof(pi));
-    if (!CreateProcessAsUser(hProcess,
+    if (!CreateProcessAsUser(hNewToken,
+        "C:\\Windows\\notepad.exe",
         NULL,
-        "notepad.exe",
         NULL,
         NULL,
         FALSE,
@@ -174,9 +208,17 @@ int CreateLowIntegrityProcess(void)
         &si,
         &pi))
     {
-        CloseHandle(hProcess);
+        CloseHandle(hNewToken);
         return -1;
     }
-    CloseHandle(hProcess);
+    if (pi.hProcess)
+    {
+        CloseHandle(pi.hProcess);
+    }
+    if (pi.hThread)
+    {
+        CloseHandle(pi.hThread);
+    }
+    CloseHandle(hNewToken);
     return 0;
 }
