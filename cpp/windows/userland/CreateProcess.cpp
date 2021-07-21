@@ -1,6 +1,7 @@
 #include <windows.h>
 #include <sddl.h>
 #include <stdlib.h>
+#include <userenv.h>
 
 
 // 创建一个 notepad.exe 的进程
@@ -85,6 +86,7 @@ HANDLE GetExplorerProcessUserToken(void)
 // 模仿当前用户创建一个新的进程
 int CreateNewProcess(void)
 {
+    BOOL ret;
     HANDLE hToken = GetExplorerProcessUserToken();
     if (hToken == NULL)
     {
@@ -95,29 +97,42 @@ int CreateNewProcess(void)
     si.cb = sizeof(si);
     PROCESS_INFORMATION pi;
     ZeroMemory(&pi, sizeof(pi));
-    if (!CreateProcessAsUser(hToken,
-        "C:\\Windows\\notepad.exe",
-        NULL,
-        NULL,
-        NULL,
-        FALSE,
-        0,
-        NULL,
-        NULL,
-        &si,
-        &pi))
+
+    ret = ImpersonateLoggedOnUser(hToken);
+    if (ret)
     {
-        return -1;
+        int dwCreateFlags = CREATE_NEW_CONSOLE;
+        LPVOID pEnvironment = NULL;
+
+        CreateEnvironmentBlock(&pEnvironment, hToken, FALSE);
+
+        if (!CreateProcessAsUser(hToken,
+            "C:\\Windows\\notepad.exe",
+            NULL,
+            NULL,
+            NULL,
+            FALSE,
+            dwCreateFlags,
+            pEnvironment,
+            NULL,
+            &si,
+            &pi))
+        {
+            return -1;
+        }
+
+        if (pi.hProcess)
+        {
+            CloseHandle(pi.hProcess);
+        }
+        if (pi.hThread)
+        {
+            CloseHandle(pi.hThread);
+        }
+
+        RevertToSelf();
     }
 
-    if (pi.hProcess)
-    {
-        CloseHandle(pi.hProcess);
-    }
-    if (pi.hThread)
-    {
-        CloseHandle(pi.hThread);
-    }
 
     return 0;
 }
@@ -186,7 +201,7 @@ int CreateLowIntegrityProcess(void)
         return -1;
     }
     CloseHandle(hToken);
-    if (!SetTokenIntegrityLevel(hNewToken, SECURITY_MANDATORY_LOW_RID))
+    if (SetTokenIntegrityLevel(hNewToken, 0))
     {
         CloseHandle(hNewToken);
         return -1;
