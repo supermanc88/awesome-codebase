@@ -237,3 +237,26 @@ int CreateLowIntegrityProcess(void)
     CloseHandle(hNewToken);
     return 0;
 }
+
+
+
+// 使用 shellexecute函数执行一个程序
+int RunProgram(char *program)
+{
+    HINSTANCE hShellExecute = LoadLibraryA("Shell32.dll");
+    if (hShellExecute)
+    {
+        SHELLEXECUTEINFOA sei;
+        ZeroMemory(&sei, sizeof(sei));
+        sei.cbSize = sizeof(sei);
+        sei.lpVerb = "runas";
+        sei.lpFile = program;
+        sei.nShow = SW_NORMAL;
+        if (ShellExecuteExA(&sei))
+        {
+            return 0;
+        }
+    }
+    return -1;
+}
+
