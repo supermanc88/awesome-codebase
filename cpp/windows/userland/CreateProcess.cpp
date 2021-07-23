@@ -1,3 +1,4 @@
+#include <corecrt_wstring.h>
 #include <windows.h>
 #include <sddl.h>
 #include <stdlib.h>
@@ -260,3 +261,127 @@ int RunProgram(char *program)
     return -1;
 }
 
+
+#include <wtsapi32.h>
+// 获取当前登录用户的token
+BOOL GetCurrentLogonUserToken(PHANDLE phToken)
+{
+    BOOL bRet = FALSE;
+    DWORD dwCurSessionId = WTSGetActiveConsoleSessionId();
+    if (WTSQueryUserToken(dwCurSessionId, phToken) == TRUE)
+        return TRUE;
+
+    DWORD err = GetLastError();
+    HANDLE hProcessSnap = NULL;
+    PROCESSENTRY32W pe32 = {0};
+    DWORD dwSessionId = 0;
+
+    hProcessSnap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+    if (hProcessSnap == INVALID_HANDLE_VALUE)
+    {
+        return FALSE;
+    }
+    pe32.dwSize = sizeof(PROCESSENTRY32W);
+    if (Process32FirstW(hProcessSnap, &pe32))
+    {
+        do
+        {
+            if (_wcsicmp(pe32.szExeFile, L"explorer.exe") == 0)
+            {
+                ProcessIdToSessionId(pe32.th32ProcessID, &dwSessionId);
+                if (dwSessionId == dwCurSessionId)
+                {
+                    HANDLE hProcess = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, pe32.th32ProcessID);
+                    err = GetLastError();
+                    bRet = OpenProcessToken(hProcess, TOKEN_ALL_ACCESS, phToken);
+                    CloseHandle(hProcessSnap);
+                    return TRUE;
+                }
+
+            }
+        } while (Process32NextW(hProcessSnap, &pe32));
+    }
+    else
+    {
+        bRet = FALSE;
+    }
+    CloseHandle(hProcessSnap);
+    return bRet;
+}
+
+
+// 以当前用户token创建进程
+BOOL CreateProcessAsLogonUser(HANDLE hToken, char * app, char * cmdline)
+{
+    HANDLE hTokenDup = NULL;
+    if (!DuplicateTokenEx(hToken, MAXIMUM_ALLOWED, NULL, SecurityIdentification, TokenPrimary, &hTokenDup))
+    {
+        return FALSE;
+    }
+
+    DWORD dwSessionId = WTSGetActiveConsoleSessionId();
+
+    if (!SetTokenInformation(hTokenDup, TokenSessionId, &dwSessionId, sizeof(DWORD)))
+    {
+        CloseHandle(hTokenDup);
+        return FALSE;
+    }
+
+    STARTUPINFO si = {0};
+    si.cb = sizeof(si);
+    si.lpDesktop = "winsta0\\default";
+    si.dwFlags = STARTF_USESHOWWINDOW;
+    si.wShowWindow = SW_SHOW;
+    PROCESS_INFORMATION pi = {0};
+
+    LPVOID lpEnvironment = NULL;
+    DWORD dwCreateFlags = CREATE_UNICODE_ENVIRONMENT | CREATE_NEW_CONSOLE;
+
+    if (!CreateEnvironmentBlock(&lpEnvironment, hTokenDup, FALSE))
+    {
+        CloseHandle(hTokenDup);
+        return FALSE;
+    }
+
+    BOOL bRet = CreateProcessAsUser(hTokenDup, app, cmdline, NULL, NULL, FALSE, dwCreateFlags, lpEnvironment, NULL, &si, &pi);
+    if (!bRet)
+    {
+        CloseHandle(hTokenDup);
+        if (lpEnvironment != NULL)
+        {
+            DestroyEnvironmentBlock(lpEnvironment);
+        }
+        return FALSE;
+    }
+
+    CloseHandle(pi.hProcess);
+    CloseHandle(pi.hThread);
+    CloseHandle(hTokenDup);
+    if (lpEnvironment != NULL)
+    {
+        DestroyEnvironmentBlock(lpEnvironment);
+    }
+
+    return TRUE;
+}
+
+
+// improve current process privilged
+BOOL EnablePrivilege(LPCTSTR lpszPrivilege, BOOL bEnablePrivilege)
+{
+    BOOL bSuccess = FALSE;
+    HANDLE hToken;
+    if (GetCurrentLogonUserToken(&hToken) &&
+        OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES, &hToken))
+    {
+        TOKEN_PRIVILEGES tp = {0};
+        if (LookupPrivilegeValue(NULL, lpszPrivilege, &tp.Privileges[0].Luid))
+        {
+            tp.PrivilegeCount = 1;
+            tp.Privileges[0].Attributes = bEnablePrivilege ? SE_PRIVILEGE_ENABLED : 0;
+            bSuccess = AdjustTokenPrivileges(hToken, FALSE, &tp, 0, NULL, NULL);
+        }
+        CloseHandle(hToken);
+    }
+    return bSuccess;
+}

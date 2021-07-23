@@ -42,3 +42,4 @@ SHDocVw::IWebBrowser2 * FindAnExistIeplore()
 
     return spBrowser;
 }
+
