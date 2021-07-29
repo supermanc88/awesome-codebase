@@ -243,6 +243,7 @@ BOOL CreateANewProcessWithUAC(WCHAR *lpApplicationName, WCHAR *lpCommandLine, DW
     WCHAR uacApplicationName[MAX_PATH] = {0};
     WCHAR uacCommandLine[1024] = {0};
 
+    // cmd /c <command> 执行完命令后就关闭
     wcscpy_s(uacApplicationName, MAX_PATH, L"C:\\Windows\\system32\\cmd.exe");
     swprintf(uacCommandLine, L"C:\\Windows\\system32\\cmd.exe /c \"%s\" %s", lpApplicationName, lpCommandLine);
 
