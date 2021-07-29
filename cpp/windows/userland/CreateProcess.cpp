@@ -1,10 +1,12 @@
-#include <corecrt_wstring.h>
 #include <windows.h>
 #include <sddl.h>
 #include <stdlib.h>
 #include <userenv.h>
 
 
+/******************************************************************************
+* CreateProcess 和 ShellExecuteEx 函数一般用在普通应用程序中
+*/
 // 创建一个 notepad.exe 的进程
 int CreateNotepadProcess(void)
 {
@@ -13,7 +15,7 @@ int CreateNotepadProcess(void)
     ZeroMemory(&si, sizeof(si));
     si.cb = sizeof(si);
     ZeroMemory(&pi, sizeof(pi));
-    if (!CreateProcess("C:\\Windows\\notepad.exe",
+    if (!CreateProcess(L"C:\\Windows\\notepad.exe",
         NULL,
         NULL,
         NULL,
@@ -37,29 +39,86 @@ int CreateNotepadProcess(void)
     return 0;
 }
 
+
+// 使用 shellexecute函数执行一个程序
+int RunProgram(char *program)
+{
+    HINSTANCE hShellExecute = LoadLibraryA("Shell32.dll");
+    if (hShellExecute)
+    {
+        SHELLEXECUTEINFOA sei;
+        ZeroMemory(&sei, sizeof(sei));
+        sei.cbSize = sizeof(sei);
+        sei.lpVerb = "runas";
+        sei.lpFile = program;
+        sei.nShow = SW_NORMAL;
+        if (ShellExecuteExA(&sei))
+        {
+            return 0;
+        }
+    }
+    return -1;
+}
+
+
+
+
+/******************************************************************************
+* CreateProcessAsUser 函数一般用在服务中
+*/
 #include <TlHelp32.h>
 // 获取 explorer.exe 进程id
 DWORD GetExplorerProcessId(void)
 {
     PROCESSENTRY32 pe;
-    ZeroMemory(&pe, sizeof(pe));
-    pe.dwSize = sizeof(pe);
-    HANDLE hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
-    if (hSnapshot == INVALID_HANDLE_VALUE)
+    ZeroMemory(&pe, sizeof(PROCESSENTRY32));
+    pe.dwSize = sizeof(PROCESSENTRY32);
+
+    // 获取当前用户的sessionId
+    DWORD dwSessionId = WTSGetActiveConsoleSessionId();
+    if (dwSessionId == 0xFFFFFFFF)
     {
         return 0;
     }
+
+    HANDLE hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+
+    if ( hSnapshot == INVALID_HANDLE_VALUE )
+    {
+        return 0;
+    }
+
     if (Process32First(hSnapshot, &pe))
     {
         do
         {
-            if (_stricmp(pe.szExeFile, "explorer.exe") == 0)
+            if ( _wcsicmp(pe.szExeFile, L"explorer.exe") == 0 )
             {
-                CloseHandle(hSnapshot);
-                return pe.th32ProcessID;
+                DWORD dwExpSessId;
+                // 获取 explorer的sessionId
+                if ( ProcessIdToSessionId(pe.th32ProcessID, &dwExpSessId) )
+                {
+                    if ( dwExpSessId == dwSessionId )
+                    {
+                        CloseHandle(hSnapshot);
+                        return pe.th32ProcessID;
+                    }
+                    else
+                    {
+                        continue;
+                    }
+                }
+                else
+                {
+                    CloseHandle(hSnapshot);
+                    return 0;
+                }
+
             }
-        } while (Process32Next(hSnapshot, &pe));
+
+        } while ( Process32Next(hSnapshot, &pe) );
     }
+
     CloseHandle(hSnapshot);
     return 0;
 }
@@ -83,60 +142,203 @@ HANDLE GetExplorerProcessUserToken(void)
     return hToken;
 }
 
-
-// 模仿当前用户创建一个新的进程
-int CreateNewProcess(void)
+/**
+ * @brief 创建一个和 explorer 同token的进程
+ * 
+ * @param lpApplicationName 
+ * @param lpCommandLine 
+ * @param dwCreationFlags 
+ * @return BOOL 
+ */
+BOOL CreateANewProcessWithExplorerToken(WCHAR *lpApplicationName, WCHAR *lpCommandLine, DWORD dwCreationFlags, DWORD dwWaitTime)
 {
-    BOOL ret;
+    BOOL bRet = TRUE;
+
     HANDLE hToken = GetExplorerProcessUserToken();
-    if (hToken == NULL)
+
+    if ( hToken == NULL )
+    {
+        return FALSE;
+    }
+
+    HANDLE hNewToken;
+    if (!DuplicateTokenEx(hToken,
+        TOKEN_ALL_ACCESS,
+        NULL,
+        SecurityImpersonation,
+        TokenPrimary,
+        &hNewToken))
     {
         return -1;
     }
+    CloseHandle(hToken);
+
     STARTUPINFO si;
-    ZeroMemory(&si, sizeof(si));
-    si.cb = sizeof(si);
+    ZeroMemory(&si, sizeof(STARTUPINFO));
+    si.cb = sizeof(STARTUPINFO);
     PROCESS_INFORMATION pi;
-    ZeroMemory(&pi, sizeof(pi));
+    ZeroMemory(&pi, sizeof(PROCESS_INFORMATION));
 
-    ret = ImpersonateLoggedOnUser(hToken);
-    if (ret)
+    // int dwCreateFlags = CREATE_UNICODE_ENVIRONMENT | CREATE_NEW_CONSOLE;
+
+    if ( !CreateProcessAsUser(hNewToken, 
+        lpApplicationName,
+        lpCommandLine,
+        NULL,
+        NULL,
+        FALSE,
+        dwCreationFlags,
+        NULL,
+        NULL,
+        &si,
+        &pi) )
     {
-        int dwCreateFlags = CREATE_NEW_CONSOLE;
-        LPVOID pEnvironment = NULL;
+        bRet = FALSE;
+    }
 
-        CreateEnvironmentBlock(&pEnvironment, hToken, FALSE);
+    WaitForSingleObject(pi.hProcess, dwWaitTime);
 
-        if (!CreateProcessAsUser(hToken,
-            "C:\\Windows\\notepad.exe",
-            NULL,
-            NULL,
-            NULL,
-            FALSE,
-            dwCreateFlags,
-            pEnvironment,
-            NULL,
-            &si,
-            &pi))
-        {
-            return -1;
-        }
+    if (pi.hProcess)
+    {
+        CloseHandle(pi.hProcess);
+    }
+    if (pi.hThread)
+    {
+        CloseHandle(pi.hThread);
+    }
+    
+    return bRet;
+}
 
-        if (pi.hProcess)
-        {
-            CloseHandle(pi.hProcess);
-        }
-        if (pi.hThread)
-        {
-            CloseHandle(pi.hThread);
-        }
+BOOL CreateANewProcessWithUAC(WCHAR *lpApplicationName, WCHAR *lpCommandLine, DWORD dwCreationFlags, DWORD dwWaitTime)
+{
+    BOOL bRet = TRUE;
 
-        RevertToSelf();
+    HANDLE hToken = GetExplorerProcessUserToken();
+
+    if ( hToken == NULL )
+    {
+        return FALSE;
+    }
+
+    HANDLE hNewToken;
+    if (!DuplicateTokenEx(hToken,
+        TOKEN_ALL_ACCESS,
+        NULL,
+        SecurityImpersonation,
+        TokenPrimary,
+        &hNewToken))
+    {
+        return -1;
+    }
+    CloseHandle(hToken);
+
+    STARTUPINFO si;
+    ZeroMemory(&si, sizeof(STARTUPINFO));
+    si.cb = sizeof(STARTUPINFO);
+    PROCESS_INFORMATION pi;
+    ZeroMemory(&pi, sizeof(PROCESS_INFORMATION));
+
+    // int dwCreateFlags = CREATE_UNICODE_ENVIRONMENT | CREATE_NEW_CONSOLE;
+    WCHAR uacApplicationName[MAX_PATH] = {0};
+    WCHAR uacCommandLine[1024] = {0};
+
+    wcscpy_s(uacApplicationName, MAX_PATH, L"C:\\Windows\\system32\\cmd.exe");
+    swprintf(uacCommandLine, L"C:\\Windows\\system32\\cmd.exe /c \"%s\" %s", lpApplicationName, lpCommandLine);
+
+    if ( !CreateProcessAsUser(hNewToken, 
+        lpApplicationName,
+        lpCommandLine,
+        NULL,
+        NULL,
+        FALSE,
+        dwCreationFlags,
+        NULL,
+        NULL,
+        &si,
+        &pi) )
+    {
+        bRet = FALSE;
+    }
+
+    WaitForSingleObject(pi.hProcess, dwWaitTime);
+
+    if (pi.hProcess)
+    {
+        CloseHandle(pi.hProcess);
+    }
+    if (pi.hThread)
+    {
+        CloseHandle(pi.hThread);
+    }
+    
+    return bRet;
+}
+
+
+bool CreateProcessWithAdmin(WCHAR *lpApplicationName, WCHAR *lpCommandLine)
+{
+   HANDLE hToken = NULL;
+   HANDLE hTokenDup = NULL;
+
+
+    if (!OpenProcessToken(GetCurrentProcess(), TOKEN_ALL_ACCESS, &hToken))
+    {
+        return false;
     }
 
 
-    return 0;
+    if (!DuplicateTokenEx(hToken, TOKEN_ALL_ACCESS, NULL, SecurityAnonymous, TokenPrimary, &hTokenDup))
+    {
+        CloseHandle(hToken);
+        return false;
+    }
+
+    STARTUPINFO si;
+    LPVOID pEnv = NULL;
+    DWORD dwSessionId = WTSGetActiveConsoleSessionId();
+    PROCESS_INFORMATION pi = {0};
+
+    ZeroMemory(&si, sizeof(STARTUPINFO));
+
+    if (!SetTokenInformation(hTokenDup, TokenSessionId, &dwSessionId, sizeof(DWORD)))
+    {
+        CloseHandle(hToken);
+        CloseHandle(hTokenDup);
+        return false;
+    }
+
+    si.cb = sizeof(STARTUPINFO);
+    si.lpDesktop = L"WinSta0\\Default";
+    si.wShowWindow = SW_SHOW;
+    si.dwFlags = STARTF_USESHOWWINDOW;
+
+    if (!CreateEnvironmentBlock(&pEnv, hTokenDup, FALSE))
+    {
+        CloseHandle(hToken);
+        CloseHandle(hTokenDup);
+        return false;
+    }
+
+    if (!CreateProcessAsUser(hTokenDup, lpApplicationName, lpCommandLine, NULL, NULL, FALSE,
+        NORMAL_PRIORITY_CLASS | CREATE_NEW_CONSOLE | CREATE_UNICODE_ENVIRONMENT,
+        pEnv, NULL, &si, &pi))
+    {
+        CloseHandle(hToken);
+        CloseHandle(hTokenDup);
+        return false;
+    }
+
+    if (pEnv)
+    {
+        DestroyEnvironmentBlock(pEnv);
+    }
+
+    CloseHandle(hToken);
+    CloseHandle(hTokenDup);
+    return true;
 }
+
 
 // set token integrity level
 int SetTokenIntegrityLevel(HANDLE hToken, int level)
@@ -213,7 +415,7 @@ int CreateLowIntegrityProcess(void)
     PROCESS_INFORMATION pi;
     ZeroMemory(&pi, sizeof(pi));
     if (!CreateProcessAsUser(hNewToken,
-        "C:\\Windows\\notepad.exe",
+        L"C:\\Windows\\notepad.exe",
         NULL,
         NULL,
         NULL,
@@ -241,27 +443,9 @@ int CreateLowIntegrityProcess(void)
 
 
 
-// 使用 shellexecute函数执行一个程序
-int RunProgram(char *program)
-{
-    HINSTANCE hShellExecute = LoadLibraryA("Shell32.dll");
-    if (hShellExecute)
-    {
-        SHELLEXECUTEINFOA sei;
-        ZeroMemory(&sei, sizeof(sei));
-        sei.cbSize = sizeof(sei);
-        sei.lpVerb = "runas";
-        sei.lpFile = program;
-        sei.nShow = SW_NORMAL;
-        if (ShellExecuteExA(&sei))
-        {
-            return 0;
-        }
-    }
-    return -1;
-}
-
-
+/*************************************************************************
+* 一些可能用到的函数
+*/
 #include <wtsapi32.h>
 // 获取当前登录用户的token
 BOOL GetCurrentLogonUserToken(PHANDLE phToken)
