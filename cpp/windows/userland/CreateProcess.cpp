@@ -54,6 +54,10 @@ int RunProgram(char *program)
         sei.nShow = SW_NORMAL;
         if (ShellExecuteExA(&sei))
         {
+            if (sei.hProcess)
+            {
+                CloseHandle(sei.hProcess);
+            }
             return 0;
         }
     }
