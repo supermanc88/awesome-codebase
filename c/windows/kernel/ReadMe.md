@@ -24,3 +24,6 @@
 
 [13. 内核中minifilter创建文件夹，相当于mkdir -p的操作](./FltCreateDirectory.c)
 
+[14. 内核中获取当前时间](./GetSystemTime.c)
+
+[15. 获取kbdclass中的KeyboardClassServiceCallback函数地址](./FindKeyboardServiceCallback.c)
