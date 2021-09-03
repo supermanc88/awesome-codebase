@@ -7,3 +7,5 @@
 [4.OutputDebugString封装](./OutputDebugString.cpp)
 
 [5.从路径中获取文件名](./GetFileNameFromPath.cpp)
+
+[6.相对路径转绝对路径](./GetFileAbsolutePath.cpp)
