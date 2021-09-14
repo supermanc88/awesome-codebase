@@ -9,3 +9,5 @@
 [5.从路径中获取文件名](./GetFileNameFromPath.cpp)
 
 [6.相对路径转绝对路径](./GetFileAbsolutePath.cpp)
+
+[7.获取程序的绝对路径](./GetProcessAbsolutePath.cpp)
