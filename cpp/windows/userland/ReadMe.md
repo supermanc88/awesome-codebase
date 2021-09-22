@@ -11,3 +11,5 @@
 [6.相对路径转绝对路径](./GetFileAbsolutePath.cpp)
 
 [7.获取程序的绝对路径](./GetProcessAbsolutePath.cpp)
+
+[8.通过进程id获取窗口句柄](./GetWindowHandle.cpp)
