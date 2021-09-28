@@ -13,6 +13,15 @@ HWND GetWindowHwndByProcessId(DWORD dwProcessId)
         // 通过窗口句柄获取进程id
         DWORD dwThreadId = GetWindowThreadProcessId(hwndWindow, &dwPid);
 
+		char window_text[256] = {0};
+		GetWindowTextA(hwndWindow, window_text, 256);
+
+		if (strlen(window_text) == 0 || !IsWindowVisible(hwndWindow))
+		{
+			hwndWindow = GetNextWindow(hwndWindow, GW_HWNDNEXT);
+			continue;
+		}
+
         if (dwThreadId != 0)
         {
             if (dwPid == dwProcessId)
