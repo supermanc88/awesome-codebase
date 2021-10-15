@@ -42,6 +42,9 @@
 *.idb
 *.pdb
 
+# compile flags
+compile_flags.txt
+
 # Kernel Module Compile Results
 *.mod*
 *.cmd
