@@ -9,3 +9,5 @@
 [5. 内核中获取当前时间](./kernel_get_current_time.c)
 
 [6. 内核中使用正则匹配路径](./kernel_path_regex.c)
+
+[7. 内核中获取当前的进程相关信息](./kernel_get_current_process.c)
