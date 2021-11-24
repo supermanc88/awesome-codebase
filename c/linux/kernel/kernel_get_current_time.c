@@ -2,6 +2,7 @@
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/time.h>
+#include <linux/rtc.h>
 
 
 /**
@@ -19,6 +20,10 @@ void gettime1(void)
     printk("%s timeval struct size = %llu, sec size = [ %llu ], usec size = [ %llu ]\n", __func__, sizeof (now), sizeof (now.tv_sec), sizeof (now.tv_usec));
 
     printk("%s current time = %lu.%lu(secs.usecs)\n", __func__, now.tv_sec, now.tv_usec);
+
+    struct rtc_time tm = {0};
+    rtc_time_to_tm(now.tv_sec, &tm);
+    printk("UTC time:%d-%d-%d %d:%d:%d\n", tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
 }
 
 
@@ -28,7 +33,7 @@ void gettime1(void)
 */
 void gettime2(void)
 {
-	struct timespec64 now = {0};
+	struct timespec now = {0};
 
 	ktime_get_ts64(&now);
 
@@ -45,7 +50,7 @@ static int __init kern_time_init(void)
 {
 	gettime1();
 
-    return 0;
+    return -1;
 }
 
 
