@@ -114,9 +114,42 @@ int create_file_test(void)
 }
 
 
+int remove_dir_test(void)
+{
+    struct nameidata nd;
+    int err = 0;
+    err = path_lookup("/", LOOKUP_DIRECTORY, &nd);
+    if (IS_ERR(err)) {
+        printk("path_lookup failed\n");
+        return -1;
+    }
+
+    struct dentry *par_dentry;
+    par_dentry = nd.path.dentry;
+
+    struct dentry *dentry;
+    dentry = lookup_one_len("1111", par_dentry, strlen("1111"));
+
+    if (IS_ERR(dentry)) {
+        printk("path_lookup failed\n");
+        return -1;
+    }
+
+    err = vfs_rmdir(par_dentry->d_inode, dentry);
+    if (IS_ERR(err)) {
+        printk("vfs_rmdir failed\n");
+        return -1;
+    }
+    path_put(&nd.path);
+
+    return 0;
+}
+
+
 int __init kernel_create_file_or_dir_init(void)
 {
-    create_dir_test();
+    // create_dir_test();
+    remove_dir_test();
     // create_file_test();
 
     return -1;
