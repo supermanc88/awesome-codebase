@@ -8,4 +8,4 @@ EXTRA_CFLAGS=-g -O0
 all:
 	$(MAKE) -C $(KERNEL_SRC) M=$(PWD) modules
 clean:
-	rm -f *.ko *.o *.symvers *.cmd *.cmd.o *.mod.c *.order *.mod
+	rm -f *.ko *.o *.symvers *.cmd *.cmd.o *.mod.c *.order *.mod *.unsigned
