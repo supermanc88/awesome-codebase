@@ -5,3 +5,5 @@
 [3. getopt参数解析](./getopt.c)
 
 [4. 创建文件或文件夹](./create_dir_or_file.c)
+
+[5. 解析配置文件](./parse_conf.c)

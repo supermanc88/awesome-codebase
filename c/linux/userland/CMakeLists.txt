@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.10)
 
-project(create_dir_or_file)
+project(parse_conf)
 
-add_executable(${PROJECT_NAME} create_dir_or_file.c)
+add_executable(${PROJECT_NAME} parse_conf.c)
