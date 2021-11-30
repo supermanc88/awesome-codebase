@@ -13,3 +13,5 @@
 [7. 内核中获取当前的进程相关信息](./kernel_get_current_process.c)
 
 [8. 内核中创建文件或文件夹](./kernel_create_file_or_dir.c)
+
+[9. ioctl通信示例,配合kernel目录代码](./kernel_ioctl_sample.c)
