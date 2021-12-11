@@ -3,7 +3,6 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/init.h>
-
 #include <linux/namei.h>
 #include <linux/dcache.h>
 #include <linux/stat.h>
@@ -70,37 +69,6 @@ int file_sync(struct file *file)
 }
 
 
-int create_dir_test(void)
-{
-    struct nameidata nd;
-    int err = 0;
-    err = path_lookup("/", LOOKUP_DIRECTORY, &nd);
-    if (IS_ERR(err)) {
-        printk("path_lookup failed\n");
-        return -1;
-    }
-
-    struct dentry *par_dentry;
-    par_dentry = nd.path.dentry;
-
-    struct dentry *dentry;
-    dentry = d_alloc_name(par_dentry, "1111");
-
-    if (IS_ERR(dentry)) {
-        printk("d_alloc_name failed\n");
-        return -1;
-    }
-
-    err = vfs_mkdir(par_dentry->d_inode, dentry, S_IRWXU | S_IRWXO | S_IRWXG);
-    if (IS_ERR(err)) {
-        printk("vfs_mkdir failed\n");
-        return -1;
-    }
-    path_put(&nd.path);
-
-    return 0;
-}
-
 int create_file_test(void)
 {
     struct file *fp = NULL;
@@ -114,43 +82,152 @@ int create_file_test(void)
 }
 
 
-int remove_dir_test(void)
+static int dev_mkdir(const char *name, mode_t mode)
 {
-    struct nameidata nd;
-    int err = 0;
-    err = path_lookup("/", LOOKUP_DIRECTORY, &nd);
+	struct nameidata nd;
+	struct nameidata root_nd;
+	struct dentry *dentry;
+	int err;
+
+    err = path_lookup("/", LOOKUP_DIRECTORY, &root_nd);
     if (IS_ERR(err)) {
-        printk("path_lookup failed\n");
-        return -1;
+        printk(KERN_ERR "path_lookup: failed, error = %d\n", err);
+        return err;
     }
 
-    struct dentry *par_dentry;
-    par_dentry = nd.path.dentry;
-
-    struct dentry *dentry;
-    dentry = lookup_one_len("1111", par_dentry, strlen("1111"));
-
-    if (IS_ERR(dentry)) {
-        printk("path_lookup failed\n");
-        return -1;
-    }
-
-    err = vfs_rmdir(par_dentry->d_inode, dentry);
+	err = vfs_path_lookup(root_nd.root.dentry, root_nd.root.mnt, name, LOOKUP_PARENT, &nd);
     if (IS_ERR(err)) {
-        printk("vfs_rmdir failed\n");
-        return -1;
+        printk(KERN_ERR "vfs_path_lookup: failed, error = %d\n", err);
+        return err;
     }
-    path_put(&nd.path);
 
-    return 0;
+	dentry = lookup_create(&nd, 1);
+	if (!IS_ERR(dentry)) {
+		err = vfs_mkdir(nd.path.dentry->d_inode, dentry, mode);
+		dput(dentry);
+	} else {
+		err = PTR_ERR(dentry);
+	}
+	mutex_unlock(&nd.path.dentry->d_inode->i_mutex);
+
+	path_put(&nd.path);
+	return err;
+}
+
+static int create_path(const char *nodepath)
+{
+	char *path;
+	struct nameidata nd;
+	int err = 0;
+
+	path = kstrdup(nodepath, GFP_KERNEL);
+	if (!path)
+		return -ENOMEM;
+
+	err = path_lookup(path, LOOKUP_PARENT, &nd);
+	if (err == 0) {
+		struct dentry *dentry;
+
+		/* create directory right away */
+		dentry = lookup_create(&nd, 1);
+		if (!IS_ERR(dentry)) {
+			err = vfs_mkdir(nd.path.dentry->d_inode,
+					dentry, 0755);
+			dput(dentry);
+		}
+		mutex_unlock(&nd.path.dentry->d_inode->i_mutex);
+
+		path_put(&nd.path);
+	} else if (err == -ENOENT) {
+		char *s;
+
+		/* parent directories do not exist, create them */
+		s = path;
+		while (1) {
+			s = strchr(s, '/');
+			if (!s)
+				break;
+			s[0] = '\0';
+			err = dev_mkdir(path, 0755);
+            printk(KERN_INFO "dev_mkdir %s, err %d\n", path, err);
+			if (err && err != -EEXIST)
+				break;
+			s[0] = '/';
+			s++;
+		}
+	}
+
+	kfree(path);
+	return err;
+}
+
+
+static int dev_rmdir(const char *name)
+{
+	struct nameidata nd;
+	struct nameidata root_nd;
+	struct dentry *dentry;
+	int err;
+
+    err = path_lookup("/", LOOKUP_DIRECTORY, &root_nd);
+    if (err) {
+        printk(KERN_ERR "path_lookup: failed, error = %d\n", err);
+        return err;
+    }
+
+	err = vfs_path_lookup(root_nd.root.dentry, root_nd.root.mnt,
+			      name, LOOKUP_PARENT, &nd);
+	if (err)
+		return err;
+
+	mutex_lock_nested(&nd.path.dentry->d_inode->i_mutex, I_MUTEX_PARENT);
+	dentry = lookup_one_len(nd.last.name, nd.path.dentry, nd.last.len);
+	if (!IS_ERR(dentry)) {
+		if (dentry->d_inode)
+			err = vfs_rmdir(nd.path.dentry->d_inode, dentry);
+		else
+			err = -ENOENT;
+		dput(dentry);
+	} else {
+		err = PTR_ERR(dentry);
+	}
+	mutex_unlock(&nd.path.dentry->d_inode->i_mutex);
+
+	path_put(&nd.path);
+	return err;
+}
+
+static int delete_path(const char *nodepath)
+{
+	const char *path;
+	int err = 0;
+
+	path = kstrdup(nodepath, GFP_KERNEL);
+	if (!path)
+		return -ENOMEM;
+
+	while (1) {
+		char *base;
+
+		base = strrchr(path, '/');
+		if (!base)
+			break;
+		base[0] = '\0';
+		err = dev_rmdir(path);
+		if (err)
+			break;
+	}
+
+	kfree(path);
+	return err;
 }
 
 
 int __init kernel_create_file_or_dir_init(void)
 {
-    // create_dir_test();
-    remove_dir_test();
     // create_file_test();
+
+    create_path("/444/2222/333/44411/");
 
     return -1;
 }
