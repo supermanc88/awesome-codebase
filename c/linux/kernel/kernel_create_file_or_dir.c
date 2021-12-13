@@ -82,6 +82,35 @@ int create_file_test(void)
 }
 
 
+int read_write_file_test(void)
+{
+	struct file *fp1 = NULL;
+	struct file *fp2 = NULL;
+
+	unsigned char buf[1024] = {0};
+
+	fp1 = file_open("/testfile", O_RDWR, 0666);
+	fp2 = file_open("/backupfile", O_RDWR | O_CREAT, 0666);
+
+	if (!fp1 || !fp2) {
+		printk("file_open file failed\n");
+		return -1;
+	}
+
+	int offset = 0;
+	int read_size = 0;
+	while ( (read_size = file_read(fp1, offset, buf, 1024)) > 0 ) {
+		file_write(fp2, offset, buf, read_size);
+		offset += read_size;
+	}
+
+	file_close(fp1);
+	file_close(fp2);
+
+	return 0;
+}
+
+
 static int dev_mkdir(const char *name, mode_t mode)
 {
 	struct nameidata nd;
@@ -227,7 +256,9 @@ int __init kernel_create_file_or_dir_init(void)
 {
     // create_file_test();
 
-    create_path("/444/2222/333/44411/");
+    // create_path("/444/2222/333/44411/");
+
+	read_write_file_test();
 
     return -1;
 }
