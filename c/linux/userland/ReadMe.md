@@ -9,3 +9,5 @@
 [5. 解析配置文件](./parse_conf.c)
 
 [6. ioctl通信示例，配合userland目录代码](./user_ioctl_sample.c)
+
+[7. 获取和设置环境变量](./get_and_set_env.c)

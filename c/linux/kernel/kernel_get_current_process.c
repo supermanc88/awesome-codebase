@@ -36,6 +36,32 @@ char *get_process_full_path(pid_t pid, char *proc_path_buf, int buf_size)
 	return process_path;
 }
 
+
+/**
+ * @brief Get the current process full path object，上面的函数当遇到
+ *       /proc/pid/exe 无链接指向时，它会崩溃，所以用mm->exe_file判断一下
+ * 
+ * @param proc_path_buf 
+ * @param buf_size 
+ * @return char* 
+ */
+char *get_current_process_full_path(char *proc_path_buf, int buf_size)
+{
+    struct mm_struct *mm = current->mm;
+    char *process_path = NULL;
+    if (mm) {
+        down_read(&mm->mmap_sem);
+
+        if (mm->exe_file) {
+            process_path = d_path(&mm->exe_file->f_path, proc_path_buf, buf_size);
+        }
+
+        up_read(&mm->mmap_sem);
+    }
+    return process_path;
+}
+
+
 static int __init get_current_process_init(void)
 {
     printk(KERN_ERR "get_current_process_init\n");
