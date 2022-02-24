@@ -15,3 +15,5 @@
 [8. 内核中创建文件或文件夹](./kernel_create_file_or_dir.c)
 
 [9. ioctl通信示例,配合kernel目录代码](./kernel_ioctl_sample.c)
+
+[10. 内核中注册sm3和sm4算法](./sm3_sm4)
