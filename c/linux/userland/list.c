@@ -13,6 +13,9 @@
 	struct list_head *next, *prev;
 };
 
+#define container_of(ptr, type, menber) \
+    (type *)((char*)ptr - (char*) &(((type *)0)->menber))
+
 #define LIST_HEAD_INIT(name) { &(name), &(name) }
 
 #define LIST_HEAD(name) \
