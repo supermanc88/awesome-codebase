@@ -17,3 +17,5 @@
 [9. ioctl通信示例,配合kernel目录代码](./kernel_ioctl_sample.c)
 
 [10. 内核中注册sm3和sm4算法](./sm3_sm4)
+
+[11. 写日志到文件](./debug2file.c)
