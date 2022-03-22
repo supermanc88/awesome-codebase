@@ -7,6 +7,8 @@
 #include <linux/stat.h>
 #include <asm/segment.h>
 #include <asm/uaccess.h>
+#include <linux/time.h>
+#include <linux/rtc.h>
 
 
 /**
@@ -18,30 +20,44 @@
 void custom_debug_print(const char *fmt, ...)
 {
 	char dbg_buf[1024] = {0};
+
+	// 获取当前时间
+	struct timeval now;
+	do_gettimeofday(&now);
+	struct rtc_time tm = {0};
+	rtc_time_to_tm(now.tv_sec, &tm);
+	sprintf(dbg_buf, "[%d-%d-%d %d:%d:%d] ",
+		tm.tm_year + 1900,
+		tm.tm_mon + 1,
+		tm.tm_mday,
+		tm.tm_hour,
+		tm.tm_min,
+		tm.tm_sec);
+
 	va_list args;
 	va_start(args, fmt);
-	vsprintf(dbg_buf, fmt, args);
+	vsprintf(dbg_buf + strlen(dbg_buf), fmt, args);
 	va_end(args);
 
 	struct file *fp = NULL;
-	fp = filp_open("/var/log/custom_debug.log", O_CREAT | O_RDWR | O_APPEND, 0777);
-	if (!fp) {
-	printk("file_open file failed\n");
-	return;
-	}
+    fp = filp_open("/var/log/infosecfs_debug.log", O_CREAT | O_RDWR | O_APPEND, 0777);
+    if (!fp) {
+        printk("file_open file failed\n");
+        return;
+    }
 
-	mm_segment_t oldfs;
-	int ret;
+    mm_segment_t oldfs;
+    int ret;
 
-	oldfs = get_fs();
-	set_fs(KERNEL_DS);
+    oldfs = get_fs();
+    set_fs(get_ds());
 
 	loff_t offset = fp->f_path.dentry->d_inode->i_size;
-	ret = vfs_write(fp, dbg_buf, strlen(dbg_buf), &offset);
+    ret = vfs_write(fp, dbg_buf, strlen(dbg_buf), &offset);
 
-	set_fs(oldfs);
+    set_fs(oldfs);
 
-	filp_close(fp, NULL);
+    filp_close(fp, NULL);
 }
 
 int __init write2file_init(void)
