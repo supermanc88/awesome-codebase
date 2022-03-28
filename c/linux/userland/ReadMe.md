@@ -19,3 +19,5 @@
 [10. 网络常用函数](./sockaddr_convert.c)
 
 [11. 获取程序执行结果](./execute_command.c)
+
+[12. 获取当前程序执行时所在路径](./get_current_dir.c)
