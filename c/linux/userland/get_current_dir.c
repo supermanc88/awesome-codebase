@@ -20,7 +20,10 @@ int get_current_dir(char *path)
     if (len < 0) {
         ret = -1;
     } else {
-        proc_path[len] = '\0';
+        char *p = strrchr(proc_path, '/');
+        if (p) {
+            *(p+1) = '\0';
+        }
         strcpy(path, proc_path);
     }
 
@@ -31,7 +34,12 @@ int get_current_dir(char *path)
 int main(int argc, char *argv[])
 {
     int ret = 0;
+    char path[1024];
 
+    ret = get_current_dir(path);
+    if (ret == 0) {
+        printf("%s\n", path);
+    }
 
     return ret;
 }
