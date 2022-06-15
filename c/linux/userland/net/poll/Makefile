@@ -1,5 +1,6 @@
-poll:
-	gcc -g -o poll poll_server.c
+objects = poll_server.o
+poll: $(objects)
+	gcc -o poll $(objects)
 
 clean:
-	rm -f poll
+	rm -f poll *.o
