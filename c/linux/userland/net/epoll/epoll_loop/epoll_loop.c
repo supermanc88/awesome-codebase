@@ -16,6 +16,7 @@
 #define MAX_EVENTS 1024         // 监听的最大事件数
 #define MAX_BUFFER_SIZE 1024    // 每个连接的最大缓冲区大小
 #define SERV_PORT 9877          // 服务器端口
+#define TIME_OUT 60
 
 struct my_events {
     int fd;                                                 // 客户端连接的文件描述符
@@ -220,14 +221,31 @@ int main(int argc, char *argv[])
 
     struct epoll_event events[MAX_EVENTS + 1];
 
+    int checkpos = 0;
+    int i;
     while (1) {
+        // 超时验证，每次测试100个连接，如果超时，则关闭这个连接
+        long now = time(NULL);
+        for (i = 0; i < 100; i++, checkpos++) {
+            if (checkpos == MAX_EVENTS) {
+                checkpos = 0;
+            }
+            if (g_events[checkpos].status == 0) {   // 这个连接没有在epoll中
+                continue;
+            }
+            if (now - g_events[checkpos].last_active > TIME_OUT) {
+                printf("close connection %d\n", g_events[checkpos].fd);
+                close(g_events[checkpos].fd);
+                event_del(g_efd, &g_events[checkpos]);
+            }
+        }
+
         int nfds = epoll_wait(g_efd, events, MAX_EVENTS + 1, 1000);
         printf("epoll_wait return %d\n", nfds);
         if (nfds == -1) {
             perror("epoll_wait");
             exit(1);
         }
-        int i;
         for (i = 0; i < nfds; i++) {
             struct epoll_event *ev = &events[i];
             struct my_events *myev = (struct my_events *)ev->data.ptr;
