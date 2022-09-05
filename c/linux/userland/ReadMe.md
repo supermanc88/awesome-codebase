@@ -26,4 +26,4 @@
 
 [14. 获取随机数](./get_random.c)
 
-[15. 获取随机数](./share_mem.c)
+[15. 共享内存](./share_mem.c)
