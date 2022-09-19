@@ -31,3 +31,5 @@
 [16. 如何使用openssl中的sm234](./sm234/)
 
 [17. 使用define对printf封装](./print_wrapper.c)
+
+[18. 获取系统CPU核心数](./get_nprocs.c)
