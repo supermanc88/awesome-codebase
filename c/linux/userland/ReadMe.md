@@ -29,3 +29,5 @@
 [15. 共享内存](./share_mem.c)
 
 [16. 如何使用openssl中的sm234](./sm234/)
+
+[17. 使用define对printf封装](./print_wrapper.c)

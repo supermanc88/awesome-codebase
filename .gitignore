@@ -57,3 +57,5 @@ dkms.conf
 
 .idea
 cmake-build-*
+.vscode
+.DS_Store
