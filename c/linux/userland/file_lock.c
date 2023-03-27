@@ -6,6 +6,7 @@
 
 // try to lock the file
 // return 0 if success, -1 if failed
+// noblock
 int try_lock_file(int fd)
 {
     struct flock fl;
@@ -14,6 +15,22 @@ int try_lock_file(int fd)
     fl.l_whence = SEEK_SET;
 
     if (fcntl(fd, F_SETLK, &fl) == -1) {
+        return -1;
+    }
+    return 0;
+}
+
+// lock the file
+// return 0 if success, -1 if failed
+// block
+int lock_file(int fd)
+{
+    struct flock fl;
+    memset(&fl, 0, sizeof(fl));
+    fl.l_type = F_WRLCK;
+    fl.l_whence = SEEK_SET;
+
+    if (fcntl(fd, F_SETLKW, &fl) == -1) {
         return -1;
     }
     return 0;
