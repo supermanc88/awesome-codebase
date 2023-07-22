@@ -1,0 +1,79 @@
+# 编译目标文件名
+TARGET=target_name
+# 编译输出目录
+OUTPUT_DIR=$(shell pwd)
+# 当前目录
+ROOT_DIR=$(shell pwd)
+
+# 头文件搜索目录
+INC_DIR=include_dir
+# 库文件搜索目录
+LIB_DIR=libs_dir
+# 编译所需的库文件，可多行
+LIBS=-l<库文件名> -l<库文件名> <静态库全路径>
+LIBS+=-l<库文件名> -l<库文件名> <静态库全路径>
+
+# 获取当前目录下的所有子目录，作为源文件目录，包含当前目录，忽略debug目录
+# 搜索深度为5层，可以根据实际情况修改
+SRC_DIR=$(shell find $(ROOT_DIR) -maxdepth 5 -type d | grep -v "debug")
+# debug源码目录
+DEBUG_DIR=<debug目录>
+
+# 获取所有源文件
+SRCS_CPP+=$(foreach dir, $(SRC_DIR), $(wildcard $(dir)/*.cpp))
+SRCS_CC+=$(foreach dir, $(SRC_DIR), $(wildcard $(dir)/*.cc))
+SRCS_C+=$(foreach dir, $(SRC_DIR), $(wildcard $(dir)/*.c))
+
+# 获取所有debug源文件
+DEBUG_SRCS_CPP+=$(wildcard $(DEBUG_DIR)/*.cpp)
+DEBUG_SRCS_CC+=$(wildcard $(DEBUG_DIR)/*.cc)
+DEBUG_SRCS_C+=$(wildcard $(DEBUG_DIR)/*.c)
+
+# 获取所有objs
+OBJS_CPP=$(patsubst %.cpp, %.o, $(SRCS_CPP))
+OBJS_CC=$(patsubst %.cc, %.o, $(SRCS_CC))
+OBJS_C=$(patsubst %.c, %.o, $(SRCS_C))
+
+# 编译工具链
+CC=gcc
+CXX=g++
+AR=ar crv
+
+# 通用CFALGS参数
+CFLAGS=-Wall -g
+# 通用宏定义
+DEFINES=-D<宏定义> -D<宏定义>
+CFLAGS+=$(DEFINES)
+
+#CFLAGS<非通用编译参数> 非通用宏定义也可以追加在这里
+STATIC_CFLAGS+=$(CFLAGS) -static -D<宏定义> -D<宏定义>
+DYNAMIC_CFLAGS+=$(CFLAGS) -fPIC -shared -D<宏定义> -D<宏定义>
+
+
+# 编译输出
+all: a so test
+
+# 编译静态库所需的objs
+$(OBJS_CPP): %.o: %.cpp
+	$(CXX) $(STATIC_CFLAGS) -I$(INC_DIR) -c $< -o $@
+
+$(OBJS_CC): %.o: %.cc
+	$(CXX) $(STATIC_CFLAGS) -I$(INC_DIR) -c $< -o $@
+
+$(OBJS_C): %.o: %.c
+	$(CC) $(STATIC_CFLAGS) -I$(INC_DIR) -c $< -o $@
+
+
+a: $(OBJS_C)
+	$(AR) $(OUTPUT_DIR)/$(TARGET).a $(OBJS_C) -L$(LIB_DIR) $(LIBS)
+
+# 编译动态库时不使用objs，直接使用源文件
+so:
+	$(CC) $(DYNAMIC_CFLAGS) -I$(INC_DIR) $(SRCS_C) -L$(LIB_DIR) $(LIBS) -o $(OUTPUT_DIR)/$(TARGET).so
+
+test:
+	# 编译测试程序 输出为$(TARGET).test
+
+.PHONY: clean
+clean:
+	rm -rf $(OBJS_CPP) $(OBJS_CC) $(OBJS_C) $(TARGET).a $(TARGET).so $(TARGET).test
