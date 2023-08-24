@@ -41,3 +41,5 @@
 [21. yyjson使用示例](./yyjson/yyjson_test.c)
 
 [22. gcrypt使用示例](./gcrypt)
+
+[23. hex2bin and bin2hex](./hex2bin.c)
