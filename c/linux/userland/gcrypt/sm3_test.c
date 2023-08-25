@@ -74,10 +74,30 @@ int sm3_long_input_test()
   return 0;
 }
 
+#define NEED_LIBGCRYPT_VERSION "1.10.2"
 
 int main(int argc, char *argv[])
 {
     int ret = 0;
+
+    // 在使用gcrypt库时，必须先调用gcry_check_version()函数，检查当前gcrypt库的版本是否满足要求
+    // 并且在使用gcrypt库的任何其他函数之前调用gcry_control()函数，初始化gcrypt库
+    gcry_error_t err = 0;
+
+    if (!gcry_control (GCRYCTL_INITIALIZATION_FINISHED_P))
+    {
+        if (!gcry_check_version (NEED_LIBGCRYPT_VERSION)) {
+            return -1;
+        }
+
+        gcry_control (GCRYCTL_DISABLE_SECMEM, 0);
+
+        err = gcry_control (GCRYCTL_INITIALIZATION_FINISHED, 0);
+        if (err) {
+            printf("Error in gcry_control: %d %s/%s\n", err, gcry_strsource(err), gcry_strerror(err));
+            return -1;
+        }
+    }
 
     sm3_test("a");
     sm3_test("abc");
