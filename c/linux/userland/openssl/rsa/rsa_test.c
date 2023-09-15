@@ -612,6 +612,150 @@ int use_rsa_priv_decrypt()
     return ret;
 }
 
+int use_rsa_priv_sign_no_print()
+{
+    int ret = 0;
+
+    BIGNUM *n = NULL;
+    BIGNUM *e = NULL;
+    BIGNUM *d = NULL;
+    BIGNUM *p = NULL;
+    BIGNUM *q = NULL;
+    BIGNUM *dmp1 = NULL;
+    BIGNUM *dmq1 = NULL;
+    BIGNUM *iqmp = NULL;
+
+    RSA *rsa = NULL;
+    rsa = RSA_new();
+    if (rsa == NULL) {
+        printf("RSA_new failed\n");
+        return -1;
+    }
+
+    n = BN_new();
+    e = BN_new();
+    d = BN_new();
+    p = BN_new();
+    q = BN_new();
+    dmp1 = BN_new();
+    dmq1 = BN_new();
+    iqmp = BN_new();
+
+    BN_hex2bn(&n, g_n_hex);
+    BN_hex2bn(&e, g_e_hex);
+    BN_hex2bn(&d, g_d_hex);
+    BN_hex2bn(&p, g_p_hex);
+    BN_hex2bn(&q, g_q_hex);
+    BN_hex2bn(&dmp1, g_dmp1_hex);
+    BN_hex2bn(&dmq1, g_dmq1_hex);
+    BN_hex2bn(&iqmp, g_iqmp_hex);
+
+    RSA_set0_key(rsa, n, e, d);
+    RSA_set0_factors(rsa, p, q);
+    RSA_set0_crt_params(rsa, dmp1, dmq1, iqmp);
+
+    // rsa private key sign
+    unsigned char *sign = NULL;
+    unsigned int sign_len = 0;
+    sign = (unsigned char *)malloc(RSA_size(rsa));
+    memset(sign, 0, RSA_size(rsa));
+
+    char *data = "hello world";
+    int data_len = strlen(data);
+
+    ret = RSA_sign(NID_sha1, (unsigned char *)data, data_len, sign, &sign_len, rsa);
+
+    RSA_free(rsa);
+
+
+    return ret;
+}
+
+int use_rsa_priv_sign_perform()
+{
+    int ret = 0;
+
+    struct timeval start, end;
+    gettimeofday(&start, NULL);
+    int i = 0;
+    for (i = 0; i < 10000; i++) {
+        ret = use_rsa_priv_sign_no_print();
+    }
+    gettimeofday(&end, NULL);
+
+    // print sign count per second
+    printf("use_rsa_priv_sign_perform ret: %d\n", ret);
+    printf("use_rsa_priv_sign_perform time: %ld\n", (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000);
+    printf("use_rsa_priv_sign_perform count per second: %f\n", 10000.0 / ((end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000));
+
+
+    return ret;
+}
+
+int use_rsa_pub_verify_no_print(unsigned char *sign_data, unsigned int sign_data_len)
+{
+    int ret = 0;
+
+    BIGNUM *n = NULL;
+    BIGNUM *e = NULL;
+
+    RSA *rsa = NULL;
+    rsa = RSA_new();
+    if (rsa == NULL) {
+        printf("RSA_new failed\n");
+        return -1;
+    }
+
+    n = BN_new();
+    e = BN_new();
+
+    BN_hex2bn(&n, g_n_hex);
+    BN_hex2bn(&e, g_e_hex);
+
+    RSA_set0_key(rsa, n, e, NULL);
+
+    // rsa public key verify
+    char *data = "hello world";
+    int data_len = strlen(data);
+
+    ret = RSA_verify(NID_sha1, (unsigned char *)data, data_len, sign_data, sign_data_len, rsa);
+
+
+    RSA_free(rsa);
+
+    return ret;
+}
+
+int use_rsa_pub_verify_perform()
+{
+    int ret = 0;
+
+    unsigned char *sign = NULL;
+    unsigned int sign_len = 0;
+    sign = (unsigned char *)malloc(128);
+    memset(sign, 0, 128);
+
+    sign_len = hex_to_bin(g_sign_hex, sign, strlen(g_sign_hex));
+
+    struct timeval start, end;
+    gettimeofday(&start, NULL);
+    int i = 0;
+    for (i = 0; i < 1000000; i++) {
+        ret = use_rsa_pub_verify_no_print(sign, sign_len);
+    }
+    gettimeofday(&end, NULL);
+
+    // print sign count per second
+    printf("use_rsa_pub_verify_perform ret: %d\n", ret);
+    printf("use_rsa_pub_verify_perform time: %ld\n", (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000);
+    printf("use_rsa_pub_verify_perform count per second: %f\n", 1000000.0 / ((end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000));
+
+    free(sign);
+
+
+    return ret;
+}
+
 int main(int argc, char *argv[])
 {
     int ret = 0;
@@ -655,6 +799,12 @@ int main(int argc, char *argv[])
 
     printf("\n*******************************test use rsa key to decrypt********************************************************\n");
     use_rsa_priv_decrypt();
+
+    printf("\n*******************************test use rsa key to sign performance********************************************************\n");
+    use_rsa_priv_sign_perform();
+
+    printf("\n*******************************test use rsa key to verify performance********************************************************\n");
+    use_rsa_pub_verify_perform();
 
 
     return ret;
