@@ -1,0 +1,30 @@
+supermanc88@INFOSEC-CHM:/mnt/e/Linux/openssl/certificate$ openssl genrsa -out mykey.key 2048
+supermanc88@INFOSEC-CHM:/mnt/e/Linux/openssl/certificate$ ls
+mykey.key
+supermanc88@INFOSEC-CHM:/mnt/e/Linux/openssl/certificate$ openssl req -new -key mykey.key -out mycsr.csr
+You are about to be asked to enter information that will be incorporated
+into your certificate request.
+What you are about to enter is what is called a Distinguished Name or a DN.
+There are quite a few fields but you can leave some blank
+For some fields there will be a default value,
+If you enter '.', the field will be left blank.
+-----
+Country Name (2 letter code) [AU]:CN
+State or Province Name (full name) [Some-State]:BJ
+Locality Name (eg, city) []:BJcity
+Organization Name (eg, company) [Internet Widgits Pty Ltd]:chmcompany
+Organizational Unit Name (eg, section) []:chmsection
+Common Name (e.g. server FQDN or YOUR name) []:chm
+Email Address []:supermanc88@gmail.com
+
+Please enter the following 'extra' attributes
+to be sent with your certificate request
+A challenge password []:
+An optional company name []:
+supermanc88@INFOSEC-CHM:/mnt/e/Linux/openssl/certificate$ ls
+mycsr.csr  mykey.key
+supermanc88@INFOSEC-CHM:/mnt/e/Linux/openssl/certificate$ openssl x509 -req -days 365 -in mycsr.csr -signkey mykey.key
+ -out mycert.crt
+Certificate request self-signature ok
+subject=C = CN, ST = BJ, L = BJcity, O = chmcompany, OU = chmsection, CN = chm, emailAddress = supermanc88@gmail.com
+supermanc88@INFOSEC-CHM:/mnt/e/Linux/openssl/certificate$
