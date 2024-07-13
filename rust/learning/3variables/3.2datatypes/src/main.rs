@@ -2,6 +2,8 @@ use std::io;
 
 fn main1() {
 
+    // Rust 是一种静态类型语言，必须在编译时知道所有变量的类型。
+    // 编译器通常可以推断出变量的类型。
     let guess: u32 = "42".parse().expect("Not a number!");
     println!("guess: {}", guess);
 
