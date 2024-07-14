@@ -9,3 +9,5 @@
 ## 3. 常见编程概念
 
 [3.1 变量和可变性](./3variables/3.1variablesandmutability/)
+
+[3.2 数据类型](./3variables/3.2datatypes/)
